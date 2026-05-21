@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Inteligente de Recolección de Residuos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Configuración inicial -->
+    <div id="setup-screen" class="screen active">
+        <div class="card">
+            <h1>Configuración</h1>
+            <p>Ingresa tu API Key de Google Maps para continuar:</p>
+            <input type="text" id="api-key-input" placeholder="AIzaSy...">
+            <button id="btn-load-map">Cargar Mapa</button>
+            <p id="setup-error" class="error hidden">Por favor ingresa una API Key válida.</p>
+        </div>
+    </div>
+
+    <!-- Selección de Rol -->
+    <div id="role-screen" class="screen hidden">
+        <div class="card">
+            <h1>Selecciona tu Rol</h1>
+            <button id="btn-role-citizen" class="role-btn">Soy Ciudadano</button>
+            <button id="btn-role-driver" class="role-btn">Soy Conductor (Camión)</button>
+        </div>
+    </div>
+
+    <!-- Pantalla Principal (Mapa e Interfaz) -->
+    <div id="main-screen" class="screen hidden">
+        <!-- Mapa de fondo -->
+        <div id="map"></div>
+
+        <!-- Botón para cambiar rol -->
+        <button id="btn-switch-role" class="floating-btn top-left">Cambiar Rol</button>
+
+        <!-- Panel del Ciudadano -->
+        <div id="citizen-panel" class="panel hidden">
+            <h2>Panel de Ciudadano</h2>
+            <p>1. Haz clic en el mapa para marcar la ubicación de los residuos.</p>
+            <p>2. Selecciona el tipo de residuo y reporta.</p>
+            <div class="form-group">
+                <label for="waste-type">Tipo de Residuo:</label>
+                <select id="waste-type">
+                    <option value="Reciclable">Reciclable (Azul)</option>
+                    <option value="Orgánica">Orgánica (Verde)</option>
+                    <option value="Ordinaria">Ordinaria (Gris)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Ubicación:</label>
+                <input type="text" id="report-location" readonly placeholder="Haz clic en el mapa...">
+            </div>
+            <button id="btn-report-waste" disabled>Reportar Basura</button>
+        </div>
+
+        <!-- Panel del Conductor -->
+        <div id="driver-panel" class="panel hidden">
+            <h2>Panel de Conductor</h2>
+            <p>El punto de inicio es el Vertedero.</p>
+            <p>Selecciona qué tipo de residuo recoger. La ruta será optimizada automáticamente.</p>
+            
+            <button id="btn-collect-reciclable" class="collect-btn" data-type="Reciclable">Recoger Reciclaje</button>
+            <button id="btn-collect-organica" class="collect-btn" data-type="Orgánica">Recoger Orgánica</button>
+            <button id="btn-collect-ordinaria" class="collect-btn" data-type="Ordinaria">Recoger Ordinaria</button>
+            
+            <div id="driver-status" class="status-box">Camión en espera (Vertedero)</div>
+            
+            <button id="btn-finish-route" class="hidden finish-btn">Completar Ruta (Vaciar reportes recogidos)</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
