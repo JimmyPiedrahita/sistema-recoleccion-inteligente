@@ -4,22 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema Inteligente de Recolección de Residuos</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Routing Machine CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Configuración inicial -->
-    <div id="setup-screen" class="screen active">
-        <div class="card">
-            <h1>Configuración</h1>
-            <p>Ingresa tu API Key de Google Maps para continuar:</p>
-            <input type="text" id="api-key-input" placeholder="AIzaSy...">
-            <button id="btn-load-map">Cargar Mapa</button>
-            <p id="setup-error" class="error hidden">Por favor ingresa una API Key válida.</p>
-        </div>
-    </div>
-
+    <!-- Configuración inicial ha sido eliminada. Entramos directo a la selección. -->
+    
     <!-- Selección de Rol -->
-    <div id="role-screen" class="screen hidden">
+    <div id="role-screen" class="screen">
         <div class="card">
             <h1>Selecciona tu Rol</h1>
             <button id="btn-role-citizen" class="role-btn">Soy Ciudadano</button>
@@ -70,6 +67,11 @@
             <button id="btn-finish-route" class="hidden finish-btn">Completar Ruta (Vaciar reportes recogidos)</button>
         </div>
     </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Routing Machine JS -->
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
     <script src="app.js"></script>
 </body>

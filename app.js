@@ -1,31 +1,20 @@
 // Global Variables
 let map = null;
-let directionsService = null;
-let directionsRenderer = null;
+let routingControl = null;
 
 // The "Vertedero" (Fixed Base Location)
-// Let's use a generic point (e.g. coordinates in a real city, say Bogota or just some coordinate)
-const VERTEDERO_POS = { lat: 4.60971, lng: -74.08175 }; 
+// Let's use a generic point (e.g. coordinates in a real city, say Bogota)
+const VERTEDERO_POS = [4.60971, -74.08175]; // Lat, Lng
 
 // State
-let reports = []; // Array to store objects: { id, location: {lat, lng}, type, marker }
+let reports = []; // Array to store objects: { id, location: [lat, lng], type, marker }
 let currentRole = null; // 'citizen' or 'driver'
 let tempMarker = null; // Used when citizen clicks the map
 let activeRouteType = null; // The type of waste currently being routed
 
-// Color Mapping for Markers
-const markerColors = {
-    'Reciclable': 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-    'Orgánica': 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
-    'Ordinaria': 'http://maps.google.com/mapfiles/ms/icons/grey-dot.png'
-};
-
 // UI Elements
-const setupScreen = document.getElementById('setup-screen');
 const roleScreen = document.getElementById('role-screen');
 const mainScreen = document.getElementById('main-screen');
-const errorMsg = document.getElementById('setup-error');
-const inputApiKey = document.getElementById('api-key-input');
 
 const citizenPanel = document.getElementById('citizen-panel');
 const driverPanel = document.getElementById('driver-panel');
@@ -35,17 +24,6 @@ const wasteTypeSelect = document.getElementById('waste-type');
 const driverStatus = document.getElementById('driver-status');
 const btnFinishRoute = document.getElementById('btn-finish-route');
 
-// Event Listeners for Setup
-document.getElementById('btn-load-map').addEventListener('click', () => {
-    const apiKey = inputApiKey.value.trim();
-    if (apiKey.length < 10) {
-        errorMsg.classList.remove('hidden');
-        return;
-    }
-    errorMsg.classList.add('hidden');
-    loadGoogleMaps(apiKey);
-});
-
 // Event Listeners for Role Switch
 document.getElementById('btn-role-citizen').addEventListener('click', () => setRole('citizen'));
 document.getElementById('btn-role-driver').addEventListener('click', () => setRole('driver'));
@@ -53,55 +31,32 @@ document.getElementById('btn-switch-role').addEventListener('click', () => {
     mainScreen.classList.add('hidden');
     roleScreen.classList.remove('hidden');
     // Clear route if we change role
-    if(directionsRenderer) directionsRenderer.setDirections({routes: []});
+    if(routingControl) {
+        map.removeControl(routingControl);
+        routingControl = null;
+    }
     activeRouteType = null;
     btnFinishRoute.classList.add('hidden');
     driverStatus.textContent = 'Camión en espera (Vertedero)';
 });
 
-// Load Google Maps API Script
-function loadGoogleMaps(apiKey) {
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMap`;
-    script.async = true;
-    script.defer = true;
-    script.onerror = () => {
-        errorMsg.textContent = "Error al cargar Google Maps. Revisa la API Key o tu conexión.";
-        errorMsg.classList.remove('hidden');
-    };
-    document.head.appendChild(script);
-}
-
 // Map Initialization
-window.initMap = function() {
-    setupScreen.classList.add('hidden');
-    roleScreen.classList.remove('hidden');
+function initMap() {
+    map = L.map('map').setView(VERTEDERO_POS, 13);
 
-    map = new google.maps.Map(document.getElementById('map'), {
-        center: VERTEDERO_POS,
-        zoom: 13,
-        mapTypeControl: false,
-        streetViewControl: false
-    });
-
-    directionsService = new google.maps.DirectionsService();
-    directionsRenderer = new google.maps.DirectionsRenderer({
-        map: map,
-        suppressMarkers: true // We'll manage our own markers primarily, but Google handles route lines
-    });
+    // Load tiles from OpenStreetMap (Free, no API Key needed)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+    }).addTo(map);
 
     // Add fixed marker for Vertedero
-    new google.maps.Marker({
-        position: VERTEDERO_POS,
-        map: map,
-        title: 'Vertedero Principal',
-        icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
-    });
+    L.marker(VERTEDERO_POS).addTo(map).bindPopup('<b>Vertedero Principal</b>').openPopup();
 
     // Add map click listener
-    map.addListener('click', (e) => {
+    map.on('click', (e) => {
         if (currentRole === 'citizen') {
-            handleMapClick(e.latLng);
+            handleMapClick(e.latlng);
         }
     });
 
@@ -115,6 +70,24 @@ window.initMap = function() {
     });
 
     btnFinishRoute.addEventListener('click', completeRoute);
+}
+
+// Custom Icons for different waste types
+const getIcon = (color) => {
+    return new L.Icon({
+        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+};
+
+const iconColors = {
+    'Reciclable': getIcon('blue'),
+    'Orgánica': getIcon('green'),
+    'Ordinaria': getIcon('grey')
 };
 
 function setRole(role) {
@@ -122,15 +95,18 @@ function setRole(role) {
     roleScreen.classList.add('hidden');
     mainScreen.classList.remove('hidden');
 
+    // Force map to recalculate size when shown
+    setTimeout(() => { map.invalidateSize(); }, 100);
+
     if (role === 'citizen') {
         citizenPanel.classList.remove('hidden');
         driverPanel.classList.add('hidden');
-        if(tempMarker) tempMarker.setMap(map);
+        if(tempMarker) tempMarker.addTo(map);
     } else {
         citizenPanel.classList.add('hidden');
         driverPanel.classList.remove('hidden');
         if(tempMarker) {
-            tempMarker.setMap(null);
+            map.removeLayer(tempMarker);
             locationInput.value = '';
             btnReportWaste.disabled = true;
         }
@@ -138,17 +114,13 @@ function setRole(role) {
 }
 
 // CITIZEN LOGIC
-function handleMapClick(latLng) {
+function handleMapClick(latlng) {
     if (tempMarker) {
-        tempMarker.setPosition(latLng);
+        tempMarker.setLatLng(latlng);
     } else {
-        tempMarker = new google.maps.Marker({
-            position: latLng,
-            map: map,
-            animation: google.maps.Animation.DROP
-        });
+        tempMarker = L.marker(latlng).addTo(map);
     }
-    locationInput.value = `${latLng.lat().toFixed(5)}, ${latLng.lng().toFixed(5)}`;
+    locationInput.value = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
     btnReportWaste.disabled = false;
 }
 
@@ -156,25 +128,22 @@ function submitReport() {
     if (!tempMarker) return;
     
     const type = wasteTypeSelect.value;
-    const location = tempMarker.getPosition();
+    const location = tempMarker.getLatLng();
     
     // Create new persistent marker
-    const newMarker = new google.maps.Marker({
-        position: location,
-        map: map,
-        icon: markerColors[type],
-        title: `Residuo ${type}`
-    });
+    const newMarker = L.marker(location, {icon: iconColors[type]})
+        .addTo(map)
+        .bindPopup(`Residuo: ${type}`);
 
     reports.push({
         id: Date.now(),
-        location: location,
+        location: [location.lat, location.lng],
         type: type,
         marker: newMarker
     });
 
     // Reset temp
-    tempMarker.setMap(null);
+    map.removeLayer(tempMarker);
     tempMarker = null;
     locationInput.value = '';
     btnReportWaste.disabled = true;
@@ -184,7 +153,12 @@ function submitReport() {
 
 // DRIVER LOGIC
 function calculateRoute(type) {
-    // Find matching reports
+    // Restablecer si había ruta previa
+    if(routingControl) {
+        map.removeControl(routingControl);
+        routingControl = null;
+    }
+
     const targetReports = reports.filter(r => r.type === type);
     
     if (targetReports.length === 0) {
@@ -194,42 +168,71 @@ function calculateRoute(type) {
 
     driverStatus.textContent = `Calculando ruta para: ${type}...`;
     
-    // Build Waypoints
-    const waypoints = targetReports.map(r => ({
-        location: r.location,
-        stopover: true
-    }));
+    // Optimización simple: Nearest Neighbor Algorithm (Algoritmo Vecino más Cercano)
+    // 1. Empezamos en el vertedero
+    let currentPoint = L.latLng(VERTEDERO_POS[0], VERTEDERO_POS[1]);
+    let unvisited = [...targetReports];
+    let orderedWaypoints = [currentPoint]; // Inicio
 
-    const request = {
-        origin: VERTEDERO_POS,
-        destination: VERTEDERO_POS, // Loop back
-        waypoints: waypoints,
-        optimizeWaypoints: true, // TSP Optimization!
-        travelMode: google.maps.TravelMode.DRIVING
-    };
+    while(unvisited.length > 0) {
+        // Buscar el más cercano al punto actual
+        let nearestIndex = 0;
+        let minDistance = Infinity;
 
-    directionsService.route(request, (result, status) => {
-        if (status === google.maps.DirectionsStatus.OK) {
-            directionsRenderer.setDirections(result);
-            activeRouteType = type;
-            btnFinishRoute.classList.remove('hidden');
-            driverStatus.textContent = `Ruta trazada. Paradas: ${waypoints.length}`;
-        } else {
-            alert("No se pudo calcular la ruta: " + status);
-            driverStatus.textContent = 'Error al calcular ruta';
+        for(let i = 0; i < unvisited.length; i++) {
+            let p = L.latLng(unvisited[i].location[0], unvisited[i].location[1]);
+            let dist = currentPoint.distanceTo(p);
+            if(dist < minDistance) {
+                minDistance = dist;
+                nearestIndex = i;
+            }
         }
+
+        // Lo añadimos a la ruta
+        let nextPoint = unvisited[nearestIndex];
+        orderedWaypoints.push(L.latLng(nextPoint.location[0], nextPoint.location[1]));
+        currentPoint = L.latLng(nextPoint.location[0], nextPoint.location[1]);
+
+        // Lo removemos de no visitados
+        unvisited.splice(nearestIndex, 1);
+    }
+
+    // Al final, regresa al vertedero
+    orderedWaypoints.push(L.latLng(VERTEDERO_POS[0], VERTEDERO_POS[1]));
+
+    // Dibujar Ruta con Leaflet Routing Machine / OSRM (100% Gratuito)
+    routingControl = L.Routing.control({
+        waypoints: orderedWaypoints,
+        routeWhileDragging: false,
+        addWaypoints: false,
+        fitSelectedRoutes: true,
+        show: false, // Ocultar las instrucciones de texto paso a paso
+        lineOptions: {
+            styles: [{color: '#d9534f', opacity: 0.8, weight: 6}]
+        },
+        createMarker: function() { return null; } // Ocultar los pines predeterminados de la ruta para dejar ver nuestras propias basuras
+    }).addTo(map);
+
+    routingControl.on('routesfound', function(e) {
+        activeRouteType = type;
+        btnFinishRoute.classList.remove('hidden');
+        driverStatus.textContent = `Ruta óptima trazada. Paradas: ${targetReports.length}`;
+    });
+
+    routingControl.on('routingerror', function(e) {
+        alert("Ocurrió un error al calcular la ruta (OSRM puede estar inestable). Intenta de nuevo.");
+        driverStatus.textContent = "Error de Enrutamiento";
     });
 }
 
 function completeRoute() {
     if (!activeRouteType) return;
 
-    // Filter out picked up waste
+    // Quitar marcadores del mapa y limpiar el arreglo
     const remainingReports = [];
     reports.forEach(r => {
         if (r.type === activeRouteType) {
-            // Remove marker from map
-            r.marker.setMap(null);
+            map.removeLayer(r.marker); // Remover el pin del mapa
         } else {
             remainingReports.push(r);
         }
@@ -238,10 +241,16 @@ function completeRoute() {
     reports = remainingReports;
     
     // Reset Route
-    directionsRenderer.setDirections({routes: []});
+    if(routingControl) {
+        map.removeControl(routingControl);
+        routingControl = null;
+    }
     activeRouteType = null;
     btnFinishRoute.classList.add('hidden');
     driverStatus.textContent = 'Camión regresó (Vertedero)';
     
     alert('Ruta completada. Se han recogido los residuos del mapa.');
 }
+
+// Inicializar el mapa al momento de cargar el script
+initMap();
