@@ -3,8 +3,8 @@ let map = null;
 let routingControl = null;
 
 // The "Vertedero" (Fixed Base Location)
-// Let's use a generic point (e.g. coordinates in a real city, say Bogota)
-const VERTEDERO_POS = [4.60971, -74.08175]; // Lat, Lng
+// Let's use a generic point en Popayán, Colombia
+const VERTEDERO_POS = [2.4419, -76.6063]; // Lat, Lng
 
 // State
 let reports = []; // Array to store objects: { id, location: [lat, lng], type, marker }
